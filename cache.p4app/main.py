@@ -18,11 +18,10 @@ for i in range(1, 2+1):
                         action_params={'dstAddr': net.get('h%d'%i).intfs[0].MAC(),
                                           'port': i}))
 for table_entry in table_entries:
-    print(table_entry)
     s1.insertTableEntry(table_entry)
 s1.printTableEntries()
 
-data = {i: i+(i *10) for i in range(1,200 + 1)}
+data = {i: i+(i*10) for i in range(1,200 + 1)}
 
 # TODO Populate the cache table
 print("cache table entries", list(data.keys())[:3])
@@ -33,7 +32,6 @@ for k in list(data.keys())[:3]:
                         action_name='MyIngress.update',
                         action_params={'value': data[k]}))
 for table_entry in cache_table_entries:
-    print(table_entry)
     s1.insertTableEntry(table_entry)
 s1.printTableEntries()
 # Now, we can test that everything works

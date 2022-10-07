@@ -104,7 +104,8 @@ parser MyParser(packet_in packet,
         Extract the UDP header.
         If the dest_port is 1234,
         parse the request header.
-        Otherwise, parse the response header.
+        Otherwise, parse the response header or 
+        nothing.
     */
     state parse_udp {
         packet.extract(hdr.udp);
@@ -170,9 +171,9 @@ control MyIngress(inout headers hdr,
 
         // Make the checksum 0 so that it is not checked
         hdr.udp.checksum = 0;
-
     }
 
+    // ipv4_forward forwards the 
     action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
             standard_metadata.egress_spec = port;
             hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
@@ -180,6 +181,7 @@ control MyIngress(inout headers hdr,
             hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
 
+    // IPv4 forwarding table
     table ipv4_lpm {
         key = {
             hdr.ipv4.dstAddr: lpm;
@@ -192,7 +194,7 @@ control MyIngress(inout headers hdr,
         default_action = NoAction();
     }
 
-
+    // Update the headers of the packet for replying using the cache.
     action update(bit<32> value){
         hdr.res = {hdr.req.key, 1, value};
         hdr.req.setInvalid();
@@ -203,6 +205,7 @@ control MyIngress(inout headers hdr,
         standard_metadata.packet_length = standard_metadata.packet_length + 5;
     }
 
+    // Cache table
     table cache {
         key = {
             hdr.req.key: exact;
@@ -218,27 +221,36 @@ control MyIngress(inout headers hdr,
     
     
     apply {
+        // If the destination port is the server and it is a request
         if(hdr.udp.dest_port == 1234 && hdr.req.isValid()){
+            // Apply the cache
             cache.apply();
+            // If there was a cache hit, respond using the result.
             if (hdr.res.isValid() && (hdr.ipv4.isValid() && hdr.ipv4.ttl > 0)) {    
                 reply();
             } else {
+                // Check if the value is in the register cache.
                 bit in_reg;
                 l2_cache_valid.read(in_reg, (bit<32>)hdr.req.key);
+                // If the value is in the register cache update,
+                // update the packet with the response header and reply.
                 if(in_reg == 1){
                     bit<32> cached_val;
                     l2_cache_vals.read(cached_val, (bit<32>)hdr.req.key);
                     update(cached_val);
                     reply();
                 } else{
+                    // Otherwise forward as usual.
                     ipv4_lpm.apply();
                 }
             }
         } else {
+            // Otherwise if it is from the server and a valid result, update the registers.
             if(hdr.udp.source_port == 1234 && hdr.res.isValid() && hdr.res.is_valid == 1){
                 l2_cache_valid.write((bit<32>)hdr.res.key, 1);
                 l2_cache_vals.write((bit<32>)hdr.res.key, hdr.res.value);
             }
+            // If the ipv4 header is valid, forward as usual.
             if (hdr.ipv4.isValid() && hdr.ipv4.ttl > 0) {
                 ipv4_lpm.apply();
             }

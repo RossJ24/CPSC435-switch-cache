@@ -18,7 +18,7 @@ addr = (host, OTHER_UDP_PORT)
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.settimeout(2)
 
-req = other_data.pack(97,int(1),int(2),int(3),int(4),int(5),int(6),int(7))
+req = other_data.pack(97, 1, 2, 3, 4, 5, 6, 7)
 s.sendto(req, addr)
 try:
     res, addr2 = s.recvfrom(1024)
